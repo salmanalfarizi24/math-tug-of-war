@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Tug-of-War Battle - 2 Player Local</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-game {
+            font-family: 'Fredoka One', cursive;
+        }
+
+        /* Keypad Touch Response */
+        .btn-calc {
+            transition: all 0.08s ease;
+            box-shadow: 0px 4px 0px rgba(0, 0, 0, 0.25);
+        }
+        .btn-calc:active, .btn-calc.active-press {
+            transform: translateY(3px);
+            box-shadow: 0px 1px 0px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Animations */
+        @keyframes correctPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); border-color: #4ade80; }
+            100% { transform: scale(1); }
+        }
+        @keyframes wrongShake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .animate-correct {
+            animation: correctPulse 0.35s ease-in-out;
+        }
+        .animate-wrong {
+            animation: wrongShake 0.35s ease-in-out;
+        }
+
+        /* Background Pattern */
+        .bg-pattern {
+            background-color: #0f172a;
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="bg-pattern text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- HEADER / CONTROL BAR -->
+    <header class="bg-slate-800/90 backdrop-blur-md border-b border-slate-700/60 py-2.5 px-4 sticky top-0 z-30 shadow-lg">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-500 text-slate-950 p-2 rounded-xl shadow-md">
+                    <i class="fa-solid fa-people-pulling text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-game text-amber-400 tracking-wide leading-none">MATH TUG-OF-WAR</h1>
+                    <p class="text-[10px] md:text-xs text-slate-400 font-semibold">Tarik Tambang Matematika 2 Player</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 md:gap-3">
+                <button id="btnSettings" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 border border-slate-600 transition shadow">
+                    <i class="fa-solid fa-sliders text-amber-400"></i> <span class="hidden sm:inline">Pengaturan</span>
+                </button>
+                <button id="btnReset" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition shadow">
+                    <i class="fa-solid fa-rotate-right"></i> <span class="hidden sm:inline">Reset</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GAME AREA -->
+    <main class="flex-1 flex flex-col justify-between p-3 md:p-5 gap-3 md:gap-4 max-w-7xl mx-auto w-full">
+        
+        <!-- ARENA CANVAS BOARD -->
+        <div id="arenaContainer" class="relative w-full h-44 sm:h-52 md:h-64 rounded-2xl border-4 border-slate-700/80 shadow-2xl overflow-hidden flex flex-col justify-between bg-slate-950">
+            <!-- Score & Mode Indicator Overlay -->
+            <div class="absolute top-2.5 left-0 right-0 px-4 flex justify-between items-center pointer-events-none z-10">
+                <div class="bg-blue-600/90 text-white px-3 py-1 rounded-full text-xs md:text-sm font-bold shadow-lg border border-blue-400/30 flex items-center gap-2">
+                    <i class="fa-solid fa-child"></i> PLAYER 1 (KIRI)
+                </div>
+                <div id="modeBadge" class="bg-amber-400 text-slate-950 px-3.5 py-1 rounded-full text-xs md:text-sm font-game uppercase tracking-wider shadow-md">
+                    CAMPURAN (SEDANG)
+                </div>
+                <div class="bg-red-600/90 text-white px-3 py-1 rounded-full text-xs md:text-sm font-bold shadow-lg border border-red-400/30 flex items-center gap-2">
+                    PLAYER 2 (KANAN) <i class="fa-solid fa-child"></i>
+                </div>
+            </div>
+
+            <!-- Floating Feedback Messages -->
+            <div id="p1Feedback" class="absolute left-6 top-12 text-sm font-game px-3 py-1 rounded-lg opacity-0 transition-all pointer-events-none z-20"></div>
+            <div id="p2Feedback" class="absolute right-6 top-12 text-sm font-game px-3 py-1 rounded-lg opacity-0 transition-all pointer-events-none z-20"></div>
+
+            <!-- Canvas for Animation -->
+            <canvas id="tugCanvas" class="w-full h-full block"></canvas>
+        </div>
+
+        <!-- SPLIT SCREEN CALCULATORS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 flex-1">
+            
+            <!-- PLAYER 1 (LEFT SIDE - BLUE TEAM) -->
+            <div id="p1Card" class="bg-slate-800/90 border-2 border-blue-500/40 rounded-2xl p-3 md:p-4 flex flex-col justify-between shadow-xl backdrop-blur-sm relative">
+                <!-- Header P1 -->
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-blue-400 font-game text-base md:text-lg tracking-wide flex items-center gap-2">
+                        <i class="fa-solid fa-user-ninja"></i> P1 (Keyboard Kiri / Layar Sentuh)
+                    </span>
+                    <span id="p1Score" class="bg-blue-900/70 text-blue-300 border border-blue-500/30 px-3 py-0.5 rounded-full text-xs font-bold">
+                        Skor: 0
+                    </span>
+                </div>
+
+                <!-- P1 Question Box -->
+                <div id="p1QuestionBox" class="bg-slate-900/90 border border-slate-700 rounded-xl p-3 mb-3 text-center transition-all">
+                    <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Soal Player 1</div>
+                    <div id="p1Question" class="text-2xl md:text-3xl font-game text-blue-300 tracking-wider">
+                        12 + 5 = ?
+                    </div>
+                    <!-- Answer Input Display -->
+                    <div class="mt-2 bg-slate-950 border border-blue-500/50 rounded-lg py-1.5 px-3 min-h-[42px] flex items-center justify-center">
+                        <span id="p1Input" class="text-2xl font-game text-amber-400 tracking-widest min-h-[32px]"></span>
+                        <span class="w-2 h-6 bg-amber-400 animate-pulse ml-1"></span>
+                    </div>
+                </div>
+
+                <!-- P1 Keypad -->
+                <div class="grid grid-cols-3 gap-1.5 md:gap-2">
+                    <button onclick="pressKey(1, '7')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">7</button>
+                    <button onclick="pressKey(1, '8')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">8</button>
+                    <button onclick="pressKey(1, '9')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">9</button>
+                    
+                    <button onclick="pressKey(1, '4')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">4</button>
+                    <button onclick="pressKey(1, '5')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">5</button>
+                    <button onclick="pressKey(1, '6')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">6</button>
+                    
+                    <button onclick="pressKey(1, '1')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">1</button>
+                    <button onclick="pressKey(1, '2')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">2</button>
+                    <button onclick="pressKey(1, '3')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">3</button>
+                    
+                    <button onclick="pressKey(1, 'C')" class="btn-calc bg-rose-700 hover:bg-rose-600 text-white font-game text-sm py-2.5 rounded-xl">DEL</button>
+                    <button onclick="pressKey(1, '0')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">0</button>
+                    <button onclick="pressKey(1, 'ENTER')" class="btn-calc bg-blue-600 hover:bg-blue-500 text-white font-game text-sm py-2.5 rounded-xl">KIRIM</button>
+                </div>
+            </div>
+
+            <!-- PLAYER 2 (RIGHT SIDE - RED TEAM) -->
+            <div id="p2Card" class="bg-slate-800/90 border-2 border-red-500/40 rounded-2xl p-3 md:p-4 flex flex-col justify-between shadow-xl backdrop-blur-sm relative">
+                <!-- Header P2 -->
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-red-400 font-game text-base md:text-lg tracking-wide flex items-center gap-2">
+                        <i class="fa-solid fa-user-astronaut"></i> P2 (Numpad / Layar Sentuh)
+                    </span>
+                    <span id="p2Score" class="bg-red-900/70 text-red-300 border border-red-500/30 px-3 py-0.5 rounded-full text-xs font-bold">
+                        Skor: 0
+                    </span>
+                </div>
+
+                <!-- P2 Question Box -->
+                <div id="p2QuestionBox" class="bg-slate-900/90 border border-slate-700 rounded-xl p-3 mb-3 text-center transition-all">
+                    <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Soal Player 2</div>
+                    <div id="p2Question" class="text-2xl md:text-3xl font-game text-red-300 tracking-wider">
+                        8 × 4 = ?
+                    </div>
+                    <!-- Answer Input Display -->
+                    <div class="mt-2 bg-slate-950 border border-red-500/50 rounded-lg py-1.5 px-3 min-h-[42px] flex items-center justify-center">
+                        <span id="p2Input" class="text-2xl font-game text-amber-400 tracking-widest min-h-[32px]"></span>
+                        <span class="w-2 h-6 bg-amber-400 animate-pulse ml-1"></span>
+                    </div>
+                </div>
+
+                <!-- P2 Keypad -->
+                <div class="grid grid-cols-3 gap-1.5 md:gap-2">
+                    <button onclick="pressKey(2, '7')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">7</button>
+                    <button onclick="pressKey(2, '8')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">8</button>
+                    <button onclick="pressKey(2, '9')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">9</button>
+                    
+                    <button onclick="pressKey(2, '4')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">4</button>
+                    <button onclick="pressKey(2, '5')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">5</button>
+                    <button onclick="pressKey(2, '6')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">6</button>
+                    
+                    <button onclick="pressKey(2, '1')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">1</button>
+                    <button onclick="pressKey(2, '2')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">2</button>
+                    <button onclick="pressKey(2, '3')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">3</button>
+                    
+                    <button onclick="pressKey(2, 'C')" class="btn-calc bg-rose-700 hover:bg-rose-600 text-white font-game text-sm py-2.5 rounded-xl">DEL</button>
+                    <button onclick="pressKey(2, '0')" class="btn-calc bg-slate-700 hover:bg-slate-600 text-white font-game text-lg md:text-xl py-2.5 rounded-xl">0</button>
+                    <button onclick="pressKey(2, 'ENTER')" class="btn-calc bg-red-600 hover:bg-red-500 text-white font-game text-sm py-2.5 rounded-xl">KIRIM</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-800 border-2 border-amber-500/80 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h2 class="text-2xl font-game text-amber-400 mb-4 flex items-center gap-2 border-b border-slate-700 pb-3">
+                <i class="fa-solid fa-sliders"></i> Pengaturan Game
+            </h2>
+
+            <div class="space-y-4">
+                <!-- Operation Selection -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-300 mb-2">Jenis Operasi Matematika:</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setMode('add')" class="mode-btn p-2.5 rounded-xl border border-slate-600 font-bold text-xs md:text-sm bg-slate-700 hover:bg-amber-500 hover:text-slate-950 transition" data-mode="add">+ Penjumlahan</button>
+                        <button onclick="setMode('sub')" class="mode-btn p-2.5 rounded-xl border border-slate-600 font-bold text-xs md:text-sm bg-slate-700 hover:bg-amber-500 hover:text-slate-950 transition" data-mode="sub">- Pengurangan</button>
+                        <button onclick="setMode('mul')" class="mode-btn p-2.5 rounded-xl border border-slate-600 font-bold text-xs md:text-sm bg-slate-700 hover:bg-amber-500 hover:text-slate-950 transition" data-mode="mul">× Perkalian</button>
+                        <button onclick="setMode('div')" class="mode-btn p-2.5 rounded-xl border border-slate-600 font-bold text-xs md:text-sm bg-slate-700 hover:bg-amber-500 hover:text-slate-950 transition" data-mode="div">÷ Pembagian</button>
+                    </div>
+                    <button onclick="setMode('mix')" class="mode-btn w-full mt-2 p-2.5 rounded-xl border border-slate-600 font-bold text-xs md:text-sm bg-amber-500 text-slate-950 shadow transition" data-mode="mix">⚡ Campuran All-in-One</button>
+                </div>
+
+                <!-- Difficulty Selection -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-300 mb-2">Tingkat Kesulitan:</label>
+                    <select id="diffSelect" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-2.5 font-bold text-amber-400 focus:outline-none focus:border-amber-400">
+                        <option value="easy">Mudah (Angka 1 - 10)</option>
+                        <option value="medium" selected>Sedang (Angka 1 - 20)</option>
+                        <option value="hard">Sukar (Angka 10 - 50)</option>
+                    </select>
+                </div>
+
+                <!-- Keyboard Shortcut Mapping Guide -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-700 text-xs text-slate-300 space-y-1">
+                    <div class="font-bold text-amber-400 flex items-center gap-1">
+                        <i class="fa-keyboard fa-regular"></i> Kontrol Keyboard Fisik:
+                    </div>
+                    <div>• <b>Player 1 (Kiri):</b> Gunakan tombol angka atas (0-9). Hapus: <code>Backspace</code>, Kirim: <code>Enter / Space</code></div>
+                    <div>• <b>Player 2 (Kanan):</b> Gunakan <code>Numpad 0-9</code>. Hapus: <code>Numpad DEL / Backspace</code>, Kirim: <code>Numpad Enter</code></div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button id="btnCloseSettings" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-game px-6 py-2.5 rounded-xl transition shadow">
+                    SIMPAN & MAIN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WINNER MODAL -->
+    <div id="winModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-800 border-4 border-amber-400 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl relative overflow-hidden">
+            <div id="winBanner" class="text-6xl mb-2 animate-bounce">🏆</div>
+            <h2 id="winTitle" class="text-3xl font-game text-amber-400 mb-2">PLAYER 1 MENANG!</h2>
+            <p id="winSub" class="text-slate-300 text-sm font-semibold mb-6">Tarik tambang berhasil dimenangkan dengan keunggulan penuh!</p>
+            
+            <div class="bg-slate-900/90 rounded-2xl p-4 mb-6 border border-slate-700 flex justify-around">
+                <div>
+                    <div class="text-xs text-slate-400 font-bold uppercase">P1 Benar</div>
+                    <div id="winP1Score" class="text-3xl font-game text-blue-400">0</div>
+                </div>
+                <div class="border-r border-slate-700"></div>
+                <div>
+                    <div class="text-xs text-slate-400 font-bold uppercase">P2 Benar</div>
+                    <div id="winP2Score" class="text-3xl font-game text-red-400">0</div>
+                </div>
+            </div>
+
+            <button onclick="resetGame()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-game text-xl py-3 rounded-2xl shadow-lg transition transform hover:scale-[1.02]">
+                MAIN LAGI
+            </button>
+        </div>
+    </div>
+
+    <!-- GAME ENGINE CODE -->
+    <script>
+        /* ==================== GAME CONFIG & STATE ==================== */
+        const GAME_CONFIG = {
+            maxPosition: 100, // Distance to win (-100 P1, +100 P2)
+            stepSize: 15,     // Pull distance for correct answer
+            penaltySize: 10   // Penalty distance for wrong answer
+        };
+
+        let gameState = {
+            ropePosition: 0,
+            p1Score: 0,
+            p2Score: 0,
+            p1Input: "",
+            p2Input: "",
+            p1Answer: 0,
+            p2Answer: 0,
+            mode: 'mix',
+            difficulty: 'medium',
+            isGameOver: false
+        };
+
+        const canvas = document.getElementById('tugCanvas');
+        const ctx = canvas.getContext('2d');
+        const settingsModal = document.getElementById('settingsModal');
+        const winModal = document.getElementById('winModal');
+
+        /* ==================== MATH ENGINE ==================== */
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function generateQuestion() {
+            let mode = gameState.mode;
+            if (mode === 'mix') {
+                const modes = ['add', 'sub', 'mul', 'div'];
+                mode = modes[Math.floor(Math.random() * modes.length)];
+            }
+
+            let maxNum = 20;
+            if (gameState.difficulty === 'easy') maxNum = 10;
+            if (gameState.difficulty === 'hard') maxNum = 50;
+
+            let num1, num2, answer, text;
+
+            switch (mode) {
+                case 'add':
+                    num1 = getRandomInt(1, maxNum);
+                    num2 = getRandomInt(1, maxNum);
+                    answer = num1 + num2;
+                    text = `${num1} + ${num2}`;
+                    break;
+                case 'sub':
+                    num1 = getRandomInt(1, maxNum);
+                    num2 = getRandomInt(1, num1);
+                    answer = num1 - num2;
+                    text = `${num1} - ${num2}`;
+                    break;
+                case 'mul':
+                    const mulMax = gameState.difficulty === 'hard' ? 12 : (gameState.difficulty === 'medium' ? 10 : 6);
+                    num1 = getRandomInt(1, mulMax);
+                    num2 = getRandomInt(1, mulMax);
+                    answer = num1 * num2;
+                    text = `${num1} × ${num2}`;
+                    break;
+                case 'div':
+                    const divMax = gameState.difficulty === 'hard' ? 12 : 10;
+                    num2 = getRandomInt(1, divMax);
+                    answer = getRandomInt(1, divMax);
+                    num1 = num2 * answer;
+                    text = `${num1} ÷ ${num2}`;
+                    break;
+            }
+
+            return { text, answer };
+        }
+
+        function nextP1Question() {
+            const q = generateQuestion();
+            gameState.p1Answer = q.answer;
+            document.getElementById('p1Question').innerText = `${q.text} = ?`;
+            gameState.p1Input = "";
+            updateInputDisplay(1);
+        }
+
+        function nextP2Question() {
+            const q = generateQuestion();
+            gameState.p2Answer = q.answer;
+            document.getElementById('p2Question').innerText = `${q.text} = ?`;
+            gameState.p2Input = "";
+            updateInputDisplay(2);
+        }
+
+        /* ==================== INPUT HANDLERS ==================== */
+        function pressKey(player, key) {
+            if (gameState.isGameOver) return;
+
+            const inputVar = player === 1 ? 'p1Input' : 'p2Input';
+
+            if (key === 'C') {
+                gameState[inputVar] = gameState[inputVar].slice(0, -1);
+            } else if (key === 'ENTER') {
+                submitAnswer(player);
+                return;
+            } else {
+                if (gameState[inputVar].length < 4) {
+                    gameState[inputVar] += key;
+                }
+            }
+
+            updateInputDisplay(player);
+        }
+
+        function updateInputDisplay(player) {
+            const el = document.getElementById(player === 1 ? 'p1Input' : 'p2Input');
+            el.innerText = gameState[player === 1 ? 'p1Input' : 'p2Input'];
+        }
+
+        function showFloatingFeedback(player, isCorrect) {
+            const el = document.getElementById(player === 1 ? 'p1Feedback' : 'p2Feedback');
+            el.innerText = isCorrect ? "+ TARIK!" : "- PENALTI!";
+            el.className = `absolute ${player === 1 ? 'left-6' : 'right-6'} top-12 text-sm font-game px-3 py-1 rounded-lg transition-all z-20 ${
+                isCorrect ? 'bg-emerald-500 text-slate-950 scale-110' : 'bg-rose-500 text-white scale-95'
+            }`;
+            el.style.opacity = '1';
+
+            setTimeout(() => {
+                el.style.opacity = '0';
+            }, 600);
+        }
+
+        function submitAnswer(player) {
+            if (gameState.isGameOver) return;
+
+            const inputStr = player === 1 ? gameState.p1Input : gameState.p2Input;
+            if (!inputStr) return;
+
+            const userAnswer = parseInt(inputStr, 10);
+            const correctAnswer = player === 1 ? gameState.p1Answer : gameState.p2Answer;
+            const cardBox = document.getElementById(player === 1 ? 'p1QuestionBox' : 'p2QuestionBox');
+
+            if (userAnswer === correctAnswer) {
+                // Correct Answer
+                if (player === 1) {
+                    gameState.p1Score++;
+                    gameState.ropePosition -= GAME_CONFIG.stepSize;
+                } else {
+                    gameState.p2Score++;
+                    gameState.ropePosition += GAME_CONFIG.stepSize;
+                }
+
+                showFloatingFeedback(player, true);
+
+                cardBox.classList.remove('animate-wrong', 'animate-correct');
+                void cardBox.offsetWidth;
+                cardBox.classList.add('animate-correct');
+
+                if (player === 1) nextP1Question();
+                else nextP2Question();
+
+            } else {
+                // Penalty for wrong answer
+                if (player === 1) {
+                    gameState.ropePosition += GAME_CONFIG.penaltySize;
+                } else {
+                    gameState.ropePosition -= GAME_CONFIG.penaltySize;
+                }
+
+                showFloatingFeedback(player, false);
+
+                cardBox.classList.remove('animate-wrong', 'animate-correct');
+                void cardBox.offsetWidth;
+                cardBox.classList.add('animate-wrong');
+
+                if (player === 1) {
+                    gameState.p1Input = "";
+                    updateInputDisplay(1);
+                } else {
+                    gameState.p2Input = "";
+                    updateInputDisplay(2);
+                }
+            }
+
+            // Clamp bounds
+            if (gameState.ropePosition < -GAME_CONFIG.maxPosition) gameState.ropePosition = -GAME_CONFIG.maxPosition;
+            if (gameState.ropePosition > GAME_CONFIG.maxPosition) gameState.ropePosition = GAME_CONFIG.maxPosition;
+
+            // Update UI Score
+            document.getElementById('p1Score').innerText = `Skor: ${gameState.p1Score}`;
+            document.getElementById('p2Score').innerText = `Skor: ${gameState.p2Score}`;
+
+            checkWin();
+        }
+
+        function checkWin() {
+            if (gameState.ropePosition <= -GAME_CONFIG.maxPosition) {
+                endGame(1);
+            } else if (gameState.ropePosition >= GAME_CONFIG.maxPosition) {
+                endGame(2);
+            }
+        }
+
+        function endGame(winner) {
+            gameState.isGameOver = true;
+            
+            const title = document.getElementById('winTitle');
+            const banner = document.getElementById('winBanner');
+
+            if (winner === 1) {
+                title.innerText = "PLAYER 1 (KIRI) MENANG!";
+                title.className = "text-3xl font-game text-blue-400 mb-2";
+                banner.innerText = "🏆";
+            } else {
+                title.innerText = "PLAYER 2 (KANAN) MENANG!";
+                title.className = "text-3xl font-game text-red-400 mb-2";
+                banner.innerText = "🏆";
+            }
+
+            document.getElementById('winP1Score').innerText = gameState.p1Score;
+            document.getElementById('winP2Score').innerText = gameState.p2Score;
+
+            winModal.classList.remove('hidden');
+        }
+
+        function resetGame() {
+            gameState.ropePosition = 0;
+            gameState.p1Score = 0;
+            gameState.p2Score = 0;
+            gameState.isGameOver = false;
+
+            document.getElementById('p1Score').innerText = `Skor: 0`;
+            document.getElementById('p2Score').innerText = `Skor: 0`;
+
+            winModal.classList.add('hidden');
+            nextP1Question();
+            nextP2Question();
+        }
+
+        /* ==================== KEYBOARD LISTENERS ==================== */
+        window.addEventListener('keydown', (e) => {
+            if (gameState.isGameOver) return;
+
+            const key = e.key;
+
+            // Player 2 Controls (Numpad)
+            if (e.code.startsWith('Numpad')) {
+                if (key >= '0' && key <= '9') pressKey(2, key);
+                if (key === 'Enter') pressKey(2, 'ENTER');
+                if (key === 'Delete' || key === 'Backspace') pressKey(2, 'C');
+                return;
+            }
+
+            // Player 1 Controls (Main keys)
+            if (key >= '0' && key <= '9') {
+                pressKey(1, key);
+            } else if (key === 'Enter' || e.code === 'Space') {
+                pressKey(1, 'ENTER');
+            } else if (key === 'Backspace') {
+                pressKey(1, 'C');
+            }
+        });
+
+        /* ==================== SETTINGS MODAL ==================== */
+        document.getElementById('btnSettings').addEventListener('click', () => {
+            settingsModal.classList.remove('hidden');
+        });
+
+        document.getElementById('btnCloseSettings').addEventListener('click', () => {
+            gameState.difficulty = document.getElementById('diffSelect').value;
+            settingsModal.classList.add('hidden');
+            resetGame();
+        });
+
+        document.getElementById('btnReset').addEventListener('click', resetGame);
+
+        function setMode(mode) {
+            gameState.mode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('bg-amber-500', 'text-slate-950');
+                    btn.classList.remove('bg-slate-700');
+                } else {
+                    btn.classList.remove('bg-amber-500', 'text-slate-950');
+                    btn.classList.add('bg-slate-700');
+                }
+            });
+
+            const labels = { add: 'PENJUMLAHAN', sub: 'PENGURANGAN', mul: 'PERKALIAN', div: 'PEMBAGIAN', mix: 'CAMPURAN' };
+            const diffLabels = { easy: 'MUDAH', medium: 'SEDANG', hard: 'SUKAR' };
+            document.getElementById('modeBadge').innerText = `${labels[mode]} (${diffLabels[gameState.difficulty]})`;
+        }
+
+        /* ==================== CANVAS ANIMATION ==================== */
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        let currentRopeX = 0;
+
+        function drawCharacter(ctx, x, y, color, isFacingRight, pullPhase) {
+            ctx.save();
+            ctx.translate(x, y);
+            if (!isFacingRight) ctx.scale(-1, 1);
+
+            const tilt = Math.sin(pullPhase) * 0.08 - 0.2;
+            ctx.rotate(tilt);
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(0, 32, 18, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(-12, -5, 24, 28, 6);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#ffdbac';
+            ctx.beginPath();
+            ctx.arc(0, -20, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(6, -22, 2, 0, Math.PI * 2);
+            ctx.arc(11, -22, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Arms
+            ctx.strokeStyle = '#ffdbac';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-2, 2);
+            ctx.lineTo(15, 8);
+            ctx.stroke();
+
+            // Legs
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 7;
+            ctx.beginPath();
+            ctx.moveTo(-6, 22);
+            ctx.lineTo(-12, 32);
+            ctx.moveTo(6, 22);
+            ctx.lineTo(12, 32);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function renderArena(timestamp) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const centerY = canvas.height * 0.65;
+            const centerX = canvas.width / 2;
+
+            const maxPxDisplacement = canvas.width * 0.32;
+            const targetX = (gameState.ropePosition / GAME_CONFIG.maxPosition) * maxPxDisplacement;
+
+            currentRopeX += (targetX - currentRopeX) * 0.1;
+            const flagX = centerX + currentRopeX;
+
+            // Ground
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(0, centerY + 28, canvas.width, 10);
+
+            // Finish Line Limit Markers
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(centerX - maxPxDisplacement, centerY - 45);
+            ctx.lineTo(centerX - maxPxDisplacement, centerY + 30);
+            ctx.moveTo(centerX + maxPxDisplacement, centerY - 45);
+            ctx.lineTo(centerX + maxPxDisplacement, centerY + 30);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Center Line Marker
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - 45);
+            ctx.lineTo(centerX, centerY + 30);
+            ctx.stroke();
+
+            // Rope
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(20, centerY + 5);
+            ctx.lineTo(canvas.width - 20, centerY + 5);
+            ctx.stroke();
+
+            // Ribbon Marker
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(flagX, centerY + 5, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(flagX, centerY + 5, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            const pullPhase = timestamp * 0.005;
+
+            // P1 Team (Blue)
+            drawCharacter(ctx, flagX - 65, centerY, '#3b82f6', true, pullPhase);
+            drawCharacter(ctx, flagX - 115, centerY, '#1d4ed8', true, pullPhase + 1);
+
+            // P2 Team (Red)
+            drawCharacter(ctx, flagX + 65, centerY, '#ef4444', false, pullPhase);
+            drawCharacter(ctx, flagX + 120, centerY, '#b91c1c', false, pullPhase + 1);
+
+            requestAnimationFrame(renderArena);
+        }
+
+        /* ==================== INITIALIZATION ==================== */
+        window.onload = function() {
+            resizeCanvas();
+            nextP1Question();
+            nextP2Question();
+            requestAnimationFrame(renderArena);
+        };
+    </script>
+</body>
+</html>
